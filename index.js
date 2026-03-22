@@ -11,6 +11,10 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.get("/", (req, res) => {
+  res.status(200).send("OK");
+});
+
 app.post("/api/data", async (req, res) => {
   const data = req.body;
 
@@ -75,5 +79,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
