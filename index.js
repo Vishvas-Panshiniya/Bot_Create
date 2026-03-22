@@ -1,62 +1,79 @@
-require('dotenv').config();
-const express = require('express');
-const axios = require('axios');
+const express = require("express");
+const dotenv = require("dotenv");
+const axios = require("axios");
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Middleware to parse JSON bodies
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Endpoint to receive Telegram messages
-app.post('/api/data', async (req, res) => {
-    try {
-        const { message } = req.body;
-        if (!message || !message.text) {
-            return res.status(400).json({ error: 'No message text provided' });
-        }
+app.post("/api/data", async (req, res) => {
+  const data = req.body;
 
-        const chatId = message.chat.id;
-        const userText = message.text;
+  const chatId = data?.message?.chat?.id;
+  const text = data?.message?.text;
 
-        console.log(`Received message from ${chatId}: ${userText}`);
+  if (!chatId || !text) {
+    return res.status(200).json({
+      message: "Data received successfully!",
+    });
+  }
 
-        // 1. Call Groq API
-        const groqResponse = await axios.post(
-            'https://api.groq.com/openai/v1/chat/completions',
-            {
-                model: 'llama-3.1-8b-instant',
-                messages: [{ role: 'user', content: userText }]
-            },
-            {
-                headers: {
-                    'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
+  try {
+    const groqResponse = await axios.post(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        model: "llama-3.1-8b-instant",
+        messages: [
+          {
+            role: "user",
+            content: `reply for this question: ${text}`,
+          },
+        ],
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
 
-        const aiReply = groqResponse.data.choices[0].message.content;
-        console.log(`AI Reply: ${aiReply}`);
+    const reply = groqResponse.data.choices[0].message.content;
 
-        // 2. Send reply back to Telegram
-        if (process.env.TELEGRAM_BOT_TOKEN) {
-            await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                chat_id: chatId,
-                text: aiReply
-            });
-        }
+    await axios.post(
+      `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+      {
+        chat_id: chatId,
+        text: reply,
+      },
+    );
 
-        res.json({
-            status: 'success',
-            reply: aiReply
-        });
-
-    } catch (error) {
-        console.error('Error processing request:', error.response ? error.response.data : error.message);
-        res.status(500).json({ error: 'Internal Server Error', details: error.message });
-    }
+    res.status(200).json({
+      message: "Data received and send successfully!",
+      reply: reply,
+    });
+  } catch (error) {
+    console.error(
+      "Error calling API:",
+      error.response ? error.response.data : error.message,
+    );
+    res.status(500).json({
+      message: "Error processing request with API",
+      error: error.message,
+    });
+  }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+// Root route
+app.get("/", (req, res) => {
+  res.send("Welcome to the Simple Express API!");
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
